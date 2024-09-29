@@ -1,11 +1,11 @@
 import socket
 import os
 
-TCP_IP = 'X'               # endereço IP do servidor 
-TCP_PORTA = 10408                     # porta disponibilizada pelo servidor
+TCP_IP = '127.0.0.1'  # endereço IP do servidor (localhost)
+TCP_PORTA = 10408     # porta disponibilizada pelo servidor
 TAMANHO_BUFFER = 1024
 
-cliente = socket.socket(socket.AF_INET, socket.SOCK_STREAM)    # cria o socket TCP para o cliente 
+cliente = socket.socket(socket.AF_INET, socket.SOCK_STREAM)  # cria o socket TCP para o cliente
 cliente.connect((TCP_IP, TCP_PORTA))  # conecta ao servidor
 
 def menu():
@@ -27,11 +27,16 @@ while True:
             cliente.send(f"SEND_FILE {filename}".encode('UTF-8'))
             with open(filename, 'rb') as f:
                 print(f"Enviando arquivo: {filename}")
-                cliente.sendfile(f)
+                while True:
+                    bytes_read = f.read(TAMANHO_BUFFER)
+                    if not bytes_read:
+                        break
+                    cliente.send(bytes_read)
+            cliente.send(b"DONE")  # envia sinal de fim da transferência
             print("Arquivo enviado com sucesso.")
         else:
             print("Arquivo não encontrado.")
-    
+
     elif escolha == "2":
         # Listar arquivos no servidor
         cliente.send("LIST_FILES".encode('UTF-8'))
@@ -48,7 +53,7 @@ while True:
                 print(f"Baixando arquivo: {filename}")
                 while True:
                     bytes_read = cliente.recv(TAMANHO_BUFFER)
-                    if not bytes_read:
+                    if bytes_read == b"DONE":  # sinal de término do envio
                         break
                     f.write(bytes_read)
             print("Arquivo baixado com sucesso.")
@@ -70,4 +75,4 @@ while True:
     else:
         print("Escolha inválida.")
 
-cliente.close()                       # fecha conexão com servidor
+cliente.close()  # fecha conexão com servidor
