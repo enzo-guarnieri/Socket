@@ -37,16 +37,25 @@ while True:
                         break
                     f.write(bytes_read)
             print(f"Arquivo {filename} recebido com sucesso.")
-        elif data == "LIST_FILES":  # Envia uma lista dos arquivos
-
-
-        elif data.startswith("GET_FILE"):   # Envia um arquivo
-            
-        elif data.startswith("DELETE_FILE"):  # Deleta um arquivo
+        elif data == "LIST_FILES":
+            files = os.listdir()  # lista arquivos no diretório atual
+            conn.send("\n".join(files).encode('UTF-8'))
+        elif data.startswith("GET_FILE"):
+            _, filename = data.split(" ", 1)
+            if os.path.isfile(filename):
+                conn.send(f"Sending {filename}".encode('UTF-8'))
+                with open(filename, 'rb') as f:
+                    conn.sendfile(f)
+                print(f"Arquivo {filename} enviado para o cliente.")
+            else:
+                conn.send(b"Arquivo não encontrado.")
+        elif data.startswith("DELETE_FILE"):
             _, filename = data.split(" ", 1)
             if os.path.isfile(filename):
                 os.remove(filename)
                 conn.send(b"Arquivo deletado com sucesso.")
             else:
                 conn.send(b"Arquivo não encontrado.")
-        
+        else:
+            MENSAGEM = input("Digite sua mensagem para o cliente: ")
+            conn.send(MENSAGEM.encode('UTF-8'))
