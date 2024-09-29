@@ -5,57 +5,69 @@ TCP_IP = 'X'               # endereço IP do servidor
 TCP_PORTA = 10408                     # porta disponibilizada pelo servidor
 TAMANHO_BUFFER = 1024
 
-servidor = socket.socket(socket.AF_INET, socket.SOCK_STREAM)      # cria o socket TCP
-servidor.bind((TCP_IP, TCP_PORTA))    # IP e porta que o servidor aguarda conexão
-servidor.listen(1)                    # define o limite de conexões
+cliente = socket.socket(socket.AF_INET, socket.SOCK_STREAM)    # cria o socket TCP para o cliente 
+cliente.connect((TCP_IP, TCP_PORTA))  # conecta ao servidor
 
-print("Servidor disponível na porta 10408 e escutando.....") 
+def menu():
+    print("Menu:")
+    print("1. Enviar arquivo")
+    print("2. Listar arquivos no servidor")
+    print("3. Baixar arquivo do servidor")
+    print("4. Deletar arquivo do servidor")
+    print("5. Sair")
 
-isConnected = False
+while True:
+    menu()
+    escolha = input("Escolha uma opção: ")
 
-while True:    
-    if not isConnected:             # espera uma conexão com um cliente
-        conn, addr = servidor.accept()
-        print('Endereço conectado:', addr)
-        isConnected = True
+    if escolha == "1":
+        # Enviar arquivo
+        filename = input("Digite o nome do arquivo para enviar: ")
+        if os.path.isfile(filename):
+            cliente.send(f"SEND_FILE {filename}".encode('UTF-8'))
+            with open(filename, 'rb') as f:
+                print(f"Enviando arquivo: {filename}")
+                cliente.sendfile(f)
+            print("Arquivo enviado com sucesso.")
+        else:
+            print("Arquivo não encontrado.")
+    
+    elif escolha == "2":
+        # Listar arquivos no servidor
+        cliente.send("LIST_FILES".encode('UTF-8'))
+        files = cliente.recv(TAMANHO_BUFFER).decode('UTF-8')
+        print("Arquivos no servidor:\n", files)
 
-    else:
-        data = conn.recv(TAMANHO_BUFFER).decode('UTF-8')  # recebe a mensagem do cliente
-        print("Mensagem recebida: ", data)
-
-        if data == "QUIT":                     # se a mensagem foi QUIT, encerra a conexão
-            isConnected = False
-            print('Endereço desconectado:', addr)
-            conn.close()
-        elif data.startswith("SEND_FILE"):     # recebe um arquivo
-            _, filename = data.split(" ", 1)
+    elif escolha == "3":
+        # Baixar arquivo do servidor
+        filename = input("Digite o nome do arquivo para baixar: ")
+        cliente.send(f"GET_FILE {filename}".encode('UTF-8'))
+        response = cliente.recv(TAMANHO_BUFFER).decode('UTF-8')
+        if response.startswith("Sending"):
             with open(filename, 'wb') as f:
-                print(f"Recebendo arquivo: {filename}")
+                print(f"Baixando arquivo: {filename}")
                 while True:
-                    bytes_read = conn.recv(TAMANHO_BUFFER)
+                    bytes_read = cliente.recv(TAMANHO_BUFFER)
                     if not bytes_read:
                         break
                     f.write(bytes_read)
-            print(f"Arquivo {filename} recebido com sucesso.")
-        elif data == "LIST_FILES":
-            files = os.listdir()  # lista arquivos no diretório atual
-            conn.send("\n".join(files).encode('UTF-8'))
-        elif data.startswith("GET_FILE"):
-            _, filename = data.split(" ", 1)
-            if os.path.isfile(filename):
-                conn.send(f"Sending {filename}".encode('UTF-8'))
-                with open(filename, 'rb') as f:
-                    conn.sendfile(f)
-                print(f"Arquivo {filename} enviado para o cliente.")
-            else:
-                conn.send(b"Arquivo não encontrado.")
-        elif data.startswith("DELETE_FILE"):
-            _, filename = data.split(" ", 1)
-            if os.path.isfile(filename):
-                os.remove(filename)
-                conn.send(b"Arquivo deletado com sucesso.")
-            else:
-                conn.send(b"Arquivo não encontrado.")
+            print("Arquivo baixado com sucesso.")
         else:
-            MENSAGEM = input("Digite sua mensagem para o cliente: ")
-            conn.send(MENSAGEM.encode('UTF-8'))
+            print(response)
+
+    elif escolha == "4":
+        # Deletar arquivo do servidor
+        filename = input("Digite o nome do arquivo para deletar: ")
+        cliente.send(f"DELETE_FILE {filename}".encode('UTF-8'))
+        response = cliente.recv(TAMANHO_BUFFER).decode('UTF-8')
+        print(response)
+
+    elif escolha == "5":
+        # Sair
+        cliente.send("QUIT".encode('UTF-8'))
+        break
+
+    else:
+        print("Escolha inválida.")
+
+cliente.close()                       # fecha conexão com servidor
