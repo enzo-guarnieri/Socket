@@ -1,38 +1,52 @@
-import socket                         # importa modulo socket
- 
-TCP_IP = '172.19.144.1'               # endereço IP do servidor 
+import socket
+import os
+
+TCP_IP = 'X'               # endereço IP do servidor 
 TCP_PORTA = 10408                     # porta disponibilizada pelo servidor
-TAMANHO_BUFFER = 1024                 # define do tamanho do buffer
+TAMANHO_BUFFER = 1024
 
 servidor = socket.socket(socket.AF_INET, socket.SOCK_STREAM)      # cria o socket TCP
-
 servidor.bind((TCP_IP, TCP_PORTA))    # IP e porta que o servidor aguarda conexão
-
 servidor.listen(1)                    # define o limite de conexões
 
-print("Servidor dispoivel na porta 5005 e escutando.....") 
+print("Servidor disponível na porta 10408 e escutando.....") 
 
 isConnected = False
 
 while True:    
     if not isConnected:             # espera uma conexão com um cliente
         conn, addr = servidor.accept()
-        
-        print ('Endereço conectado:', addr)
+        print('Endereço conectado:', addr)
         isConnected = True
+
     else:
-        data = conn.recv(TAMANHO_BUFFER)
-        print ("Mensagem recebida: ", data)     # recebe uma mensagem do cliente
-        
-        if data == b"QUIT":                     # se a mensagem foi QUIT, encerra a conexão
-            conn.close()
+        data = conn.recv(TAMANHO_BUFFER).decode('UTF-8')  # recebe a mensagem do cliente
+        print("Mensagem recebida: ", data)
+
+        if data == "QUIT":                     # se a mensagem foi QUIT, encerra a conexão
             isConnected = False
-            print ('Endereço desconectado:', addr)
-        else:                                   # responde a mensagem do cliente
-            MENSAGEM = input("Digite sua mensagem para o cliente: ")
-            conn.send(MENSAGEM.encode('UTF-8'))
+            print('Endereço desconectado:', addr)
+            conn.close()
+        elif data.startswith("SEND_FILE"):     # recebe um arquivo
+            _, filename = data.split(" ", 1)
+            with open(filename, 'wb') as f:
+                print(f"Recebendo arquivo: {filename}")
+                while True:
+                    bytes_read = conn.recv(TAMANHO_BUFFER)
+                    if not bytes_read:
+                        break
+                    f.write(bytes_read)
+            print(f"Arquivo {filename} recebido com sucesso.")
+        elif data == "LIST_FILES":  # Envia uma lista dos arquivos
+
+
+        elif data.startswith("GET_FILE"):   # Envia um arquivo
             
-            if MENSAGEM == "QUIT":
-                conn.close()
-                isConnected = False
-                print ('Endereço desconectado:', addr)
+        elif data.startswith("DELETE_FILE"):  # Deleta um arquivo
+            _, filename = data.split(" ", 1)
+            if os.path.isfile(filename):
+                os.remove(filename)
+                conn.send(b"Arquivo deletado com sucesso.")
+            else:
+                conn.send(b"Arquivo não encontrado.")
+        
