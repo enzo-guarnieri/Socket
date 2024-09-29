@@ -1,7 +1,7 @@
 import socket
 import os
 
-TCP_IP = '172.19.144.1'               # endereço IP do servidor 
+TCP_IP = 'X'               # endereço IP do servidor 
 TCP_PORTA = 10408                     # porta disponibilizada pelo servidor
 TAMANHO_BUFFER = 1024
 
