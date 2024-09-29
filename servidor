@@ -1,39 +1,38 @@
 import socket
 import os
 
-TCP_IP = 'X'               # endereço IP do servidor 
-TCP_PORTA = 10408                     # porta disponibilizada pelo servidor
+TCP_IP = '127.0.0.1'  # endereço IP do servidor (localhost)
+TCP_PORTA = 10408     # porta disponibilizada pelo servidor
 TAMANHO_BUFFER = 1024
 
-servidor = socket.socket(socket.AF_INET, socket.SOCK_STREAM)      # cria o socket TCP
-servidor.bind((TCP_IP, TCP_PORTA))    # IP e porta que o servidor aguarda conexão
-servidor.listen(1)                    # define o limite de conexões
+servidor = socket.socket(socket.AF_INET, socket.SOCK_STREAM)  # cria o socket TCP
+servidor.bind((TCP_IP, TCP_PORTA))  # IP e porta que o servidor aguarda conexão
+servidor.listen(1)  # define o limite de conexões
 
-print("Servidor disponível na porta 10408 e escutando.....") 
+print("Servidor disponível na porta 10408 e escutando.....")
 
 isConnected = False
 
-while True:    
-    if not isConnected:             # espera uma conexão com um cliente
+while True:
+    if not isConnected:  # espera uma conexão com um cliente
         conn, addr = servidor.accept()
         print('Endereço conectado:', addr)
         isConnected = True
-
     else:
         data = conn.recv(TAMANHO_BUFFER).decode('UTF-8')  # recebe a mensagem do cliente
         print("Mensagem recebida: ", data)
 
-        if data == "QUIT":                     # se a mensagem foi QUIT, encerra a conexão
+        if data == "QUIT":  # se a mensagem foi QUIT, encerra a conexão
             isConnected = False
             print('Endereço desconectado:', addr)
             conn.close()
-        elif data.startswith("SEND_FILE"):     # recebe um arquivo
+        elif data.startswith("SEND_FILE"):  # recebe um arquivo
             _, filename = data.split(" ", 1)
             with open(filename, 'wb') as f:
                 print(f"Recebendo arquivo: {filename}")
                 while True:
                     bytes_read = conn.recv(TAMANHO_BUFFER)
-                    if not bytes_read:
+                    if bytes_read == b"DONE":  # sinal de fim da transferência
                         break
                     f.write(bytes_read)
             print(f"Arquivo {filename} recebido com sucesso.")
@@ -45,17 +44,23 @@ while True:
             if os.path.isfile(filename):
                 conn.send(f"Sending {filename}".encode('UTF-8'))
                 with open(filename, 'rb') as f:
-                    conn.sendfile(f)
+                    while True:
+                        bytes_read = f.read(TAMANHO_BUFFER)
+                        if not bytes_read:
+                            break
+                        conn.send(bytes_read)
                 print(f"Arquivo {filename} enviado para o cliente.")
+                conn.send(b"DONE")  # envia um sinal de término da transmissão
             else:
-                conn.send(b"Arquivo não encontrado.")
+                conn.send("Arquivo não encontrado.".encode('UTF-8'))
         elif data.startswith("DELETE_FILE"):
             _, filename = data.split(" ", 1)
             if os.path.isfile(filename):
                 os.remove(filename)
-                conn.send(b"Arquivo deletado com sucesso.")
+                print(f"Deletando arquivo: {filename}")
+                conn.send("Arquivo deletado com sucesso.".encode('UTF-8'))
             else:
-                conn.send(b"Arquivo não encontrado.")
+                conn.send("Arquivo não encontrado.".encode('UTF-8'))
         else:
             MENSAGEM = input("Digite sua mensagem para o cliente: ")
             conn.send(MENSAGEM.encode('UTF-8'))
