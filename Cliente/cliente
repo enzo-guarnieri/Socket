@@ -1,0 +1,101 @@
+import socket
+import os
+import struct
+
+# Configurações de rede
+TCP_IP = "127.0.0.1"
+TCP_PORTA = 1456
+BUFFER_SIZE = 1024
+
+# Criação do socket do cliente
+cliente = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+cliente.connect((TCP_IP, TCP_PORTA))
+
+
+def enviar_arquivo():
+    filename = input("Digite o nome do arquivo para enviar: ")
+    if os.path.isfile(filename):
+        cliente.send(b"UPLD")
+        cliente.recv(BUFFER_SIZE)
+        cliente.send(struct.pack("h", len(filename)))
+        cliente.send(filename.encode('utf-8'))
+        cliente.recv(BUFFER_SIZE)
+        cliente.send(struct.pack("i", os.path.getsize(filename)))
+        with open(filename, "rb") as f:
+            while True:
+                chunk = f.read(BUFFER_SIZE)
+                if not chunk:
+                    break
+                cliente.send(chunk)
+        print("Arquivo enviado com sucesso.")
+    else:
+        print("Arquivo não encontrado.")
+
+
+def baixar_arquivo():
+    filename = input("Digite o nome do arquivo para baixar: ")
+    cliente.send(b"DWLD")
+    cliente.recv(BUFFER_SIZE)
+    cliente.send(struct.pack("h", len(filename)))
+    cliente.send(filename.encode('utf-8'))
+
+    file_size = struct.unpack("i", cliente.recv(4))[0]
+    if file_size != -1:
+        with open(filename, "wb") as f:
+            bytes_received = 0
+            while bytes_received < file_size:
+                chunk = cliente.recv(BUFFER_SIZE)
+                if not chunk:
+                    print("Conexão encerrada antes do término do download.")
+                    break
+                f.write(chunk)
+                bytes_received += len(chunk)
+        print(f"Arquivo {filename} baixado com sucesso.")
+    else:
+        print("Arquivo não encontrado no servidor.")
+
+
+def listar_arquivos():
+    cliente.send(b"LIST")
+    file_count = struct.unpack("i", cliente.recv(4))[0]
+    for _ in range(file_count):
+        file_name_size = struct.unpack("i", cliente.recv(4))[0]
+        file_name = cliente.recv(file_name_size).decode('utf-8')
+        file_size = struct.unpack("i", cliente.recv(4))[0]
+        print(f"Nome: {file_name}, Tamanho: {file_size} bytes")
+
+
+def deletar_arquivo():
+    filename = input("Digite o nome do arquivo para deletar: ")
+    cliente.send(b"DELF")
+    cliente.recv(BUFFER_SIZE)
+    cliente.send(struct.pack("h", len(filename)))
+    cliente.send(filename.encode('utf-8'))
+    status = struct.unpack("i", cliente.recv(4))[0]
+    if status == 1:
+        print("Arquivo deletado com sucesso.")
+    else:
+        print("Arquivo não encontrado.")
+
+
+def menu():
+    while True:
+        print("\n1. Enviar arquivo\n2. Baixar arquivo\n3. Listar arquivos\n4. Deletar arquivo\n5. Sair")
+        escolha = input("Escolha uma opção: ")
+        if escolha == "1":
+            enviar_arquivo()
+        elif escolha == "2":
+            baixar_arquivo()
+        elif escolha == "3":
+            listar_arquivos()
+        elif escolha == "4":
+            deletar_arquivo()
+        elif escolha == "5":
+            cliente.send(b"QUIT")
+            cliente.close()
+            break
+        else:
+            print("Opção inválida.")
+
+
+menu()
